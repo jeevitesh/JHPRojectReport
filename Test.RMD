@@ -1,0 +1,131 @@
+#Practical Machine learning by Johns hopkins Prediction Assignment WriteUp Report
+
+##Link Git Hub repo
+
+###How Model has been constructed
+
+####First lets read the data
+
+```{r}
+
+library(modeest)
+library(caret)
+require(data.table)
+
+trainingInputData<-read.csv("F:/jeevi/AICourses/writeUP/pml-training.csv", na.strings=c("NA",""))
+testingInputData<-read.csv("F:/jeevi/AICourses/writeUP/pml-testing.csv", na.strings=c("NA",""))
+inTrain <- createDataPartition(trainingInputData$classe, p=0.75, list = FALSE)
+trainSet <- trainingInputData[inTrain,]
+pretestSet <- trainingInputData[-inTrain,]
+```
+
+####Data Cleaning Techniques
+Here I'm applying two step process  
+1. Columns like names, rowID, datatime stamps are not adding any values to the prediction process. Hence forth removing the same.  
+2. Remove NA columns which are having more than 10000 NA values.    
+     Reason : Because if we predict using KNN impute method when there are more than half of the values are NA. Prediction process won't be                         reliable.
+     
+```{r}
+trainSetRemovedColumns<-trainSet[, -(1:6)]
+pretestSetRemovedColumns<-pretestSet[, -(1:6)]
+testSetRemovedColumns<-testingInputData[, -(1:6)]
+
+colNA<-which(colSums(is.na(trainSetRemovedColumns)) > 10000)
+
+trainSetCleaned<-trainSetRemovedColumns[, -colNA]
+pretestSetRemovedColumns<-pretestSetRemovedColumns[, -colNA]
+testSetCleaned<-testSetRemovedColumns[, -colNA]
+
+# Remove Class variables
+testSetWithoutClassVariable<-trainSetCleaned[, -54]
+pretestSetWithoutClassVariable<-pretestSetRemovedColumns[, -54]
+```
+Applying GBM method to train the system  
+Note: Other methods were applied like Random forest and LDA.   
+All those method returned nearly same accuracy. You can find those method step process at the end of the document.   
+In appendix 1 and appendix 2 respectively.  
+
+```{r}
+ModelGBM <- train(trainSetCleaned$classe~ .,method="gbm", data=testSetWithoutClassVariable)
+```
+Note: As there was limit to the charaters(i.e., 2000) in the report i have manually edited HTML file and removed the content after iteration 2.  
+Lets analyse trained set  
+In sample error: Error which comes out from training.  
+OutSample error: Error Which is from new Data Set.  
+Here Validation set is used to measure Out Sample error on Trained set  
+```{R}
+predictTrain<-predict(ModelGBM, testSetWithoutClassVariable)
+predictPreTest<-predict(ModelGBM, pretestSetWithoutClassVariable)
+predictTest<-predict(ModelGBM, testSetCleaned)
+
+
+tableTrain<-table(predictTrain, trainSetCleaned$classe)
+tablePretest<-table(predictPreTest, pretestSetRemovedColumns$classe)
+
+confusionMatrix(tableTrain)
+```
+IN sample Accuracy is 99.25 IN Sample error is 0.75%  
+**Do the authors describe what they expect the out of sample error to be and estimate the error appropriately with cross-validation?**    
+*Now check pretext or validation test to find OUT sample error. OUT Sample error is calculated on Data which was not used in training the model.*  
+**
+Out Sample Accuracy is :98.9%  
+Out Sample error Rate is : 1.1% **  
+Model Prediction on test Set  
+```{r}
+predictTest
+```
+**END OF REPORT**  
+
+#Appendix 1:    
+**Train the model using random forest**  
+Creating data set remain same as we followed in the process GBM  
+```{r}
+ModelRF <- train(trainSetCleaned$classe~ .,method="rf", data=testSetWithoutClassVariable)
+
+```
+
+```{r}
+predictTrain<-predict(ModelRF, testSetWithoutClassVariable)
+predictPreTest<-predict(ModelRF, pretestSetWithoutClassVariable)
+predictTest<-predict(ModelRF, testSetCleaned)
+
+ 
+tableTrain<-table(predictTrain, trainSetCleaned$classe)
+tablePretest<-table(predictPreTest, pretestSetRemovedColumns$classe)
+```
+IN sample Accuracy is 100% IN Sample error is 0%  
+```{r}
+confusionMatrix(tableTrain)
+```
+**Out sample Accuracy is 99.79 IN Sample error is 0.21%**  
+
+```{r}
+confusionMatrix(tablePretest)[3]
+```
+Prediction on Test Set  
+```{r}
+predictTest
+```
+
+#Appendix 2:  
+**Train the model USING LDA**  
+```{r}
+Modellda <- train(trainSetCleaned$classe~ .,method="lda", data=testSetWithoutClassVariable)
+predictTrain<-predict(ModelGBM, testSetWithoutClassVariable)
+predictPreTest<-predict(ModelGBM, pretestSetWithoutClassVariable)
+predictTest<-predict(ModelGBM, testSetCleaned)
+
+tableTrain<-table(predictTrain, trainSetCleaned$classe)
+tablePretest<-table(predictPreTest, pretestSetRemovedColumns$classe)
+confusionMatrix(tableTrain)
+```
+IN sample Accuracy is 100% IN Sample error is 0%  
+Out sample Accuracy is 99.85 IN Sample error is 0.15%  
+
+```{r}
+confusionMatrix(tablePretest)[3]
+```
+**Prediction on Test Set**  
+```{r}
+predictTest
+```
